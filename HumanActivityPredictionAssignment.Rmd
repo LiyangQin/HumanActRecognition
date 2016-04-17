@@ -1,0 +1,116 @@
+Prediction Assignment Writeup - Practical Machine Learning
+===========================================================
+
+## Background
+
+In this project we try to analyse how "well" an excercise was performed using data from accelerometers on the belt, forearm, arm, and dumbell. In order to simulate the situaion, 6 male participants aged between 20-28 years performed weight lifting in five different fashions. 
+
+The detail for the five are listed as below: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. 
+
+
+The goal of this project is to predict the manner in which they did the exercise using data from accelerometers on the belt, forearm, arm, and dumbell.
+
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har
+
+
+### Loanding and Splitting the Data
+
+Load the training and testing data separately.
+
+```{r loadin,echo=TRUE}
+## download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","data/pml-training.csv")
+
+## download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","data/pml-testing.csv")
+setwd("D:/360MoveData/Documents")
+
+training <- read.csv("data/pml-training.csv", stringsAsFactors = FALSE, na.strings = "NA")
+
+testing <- read.csv("data/pml-testing.csv", stringsAsFactors = FALSE, na.strings = "NA")
+
+## view the structure of the data using
+## str(training)
+## summary(training)
+
+```
+
+## Preprocessing & Feature Generation
+
+* We will only use accelerometer data from the belt, forearm, arm, and dumbell. 
+* Subset these columns as our predictors and inpute features that contain mainly NAs.
+
+```{r nacol, echo=TRUE}
+training <- training [, 8:ncol(training)]
+## count number of NAs in each observations, if 50% of the observations are NA, we think these observations as not enough for predictions.
+training <- training[,-c(1:8)]
+na_test = sapply(training, function(x) {sum(is.na(x))})
+na_columns = names(na_test[na_test > nrow(training)*0.5])
+training = training[, !names(training) %in% na_columns]
+```
+
+There are some column contains empty values, impute these column from the data frame
+```{r emptycol, echo=TRUE}
+ept_test = sapply(training, function(x){sum(x=="")})
+ept_columns = names(ept_test[ept_test > nrow(training)*0.5])
+training = training[, !names(training) %in% ept_columns]
+training  <- subset(training, classe !="")
+training$classe <- as.factor(training$classe)
+ncol(training)
+```
+After this step, we have 49 predictors plus a classe label.
+
+### Train prediction models
+
+- Our first model uses boosting algorithm and 3-fold cross validation;
+- Our second model is Random forests model.
+
+```{r model, eval = FALSE}
+library(caret)
+set.seed(20160417)
+mod1 <- train(classe ~ ., method = "gbm", data = training, verbose = F, trControl = trainControl(method = "cv", number = 3))
+# see the accuracy situation on the training set
+pred1 <- predict(mod1, training)
+confusionMatrix(pred1, training$classe)
+
+mod2 <- train(classe ~ ., method = "rf", data = training, importance = T, trControl = trainControl(method = "cv", number = 3))
+# see the accuracy situation on the training set
+pred2 <- predict(mod2, training)
+confusionMatrix(pred2, training$classe)
+# Save training model object for later.
+save(mod2, file="result/trainingModel.RData")
+
+```
+
+The boosting model has an accuracy of 0.98, while the random forest method returns an accuracy of 1 on the training set.
+Based on the performance on training data, we choose random forest as our final prediction model
+
+### Prediction on testing data
+
+```{r prediction}
+# final model
+load(file="result/trainingModel.RData", verbose=FALSE)
+finalMod <- mod2
+# prediction
+
+pred <- predict(finalMod, testing)
+prediction <- as.character(pred)
+print(prediction)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
